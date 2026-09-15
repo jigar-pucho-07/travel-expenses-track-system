@@ -141,7 +141,13 @@ export default function AddExpense() {
           ...form,
           merchant: ext.merchant || '',
           expense_date: ext.date || '',
-          amount: String(ext.amount || ''),
+          amount: (() => {
+            const inr = parseFloat(ext.amount_in_inr) || 0;
+            if (ext.currency && ext.currency !== 'INR' && inr > 0) {
+              return String(inr);
+            }
+            return String(ext.amount || '');
+          })(),
           category: ext.category || 'Other',
         });
         toast.success('Receipt processed! Please review and edit details before adding.');
@@ -214,12 +220,30 @@ export default function AddExpense() {
             <p className="text-sm font-medium text-ok">Data extracted — please verify</p>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {['merchant', 'date', 'amount', 'tax', 'invoice_number', 'category'].map(k => (
-              <div key={k} className="bg-canvas-soft rounded-xl p-2.5">
-                <p className="text-[10px] text-ink-muted uppercase">{k.replace('_', ' ')}</p>
-                <p className="text-sm font-medium text-ink">{extracted[k] || '-'}</p>
-              </div>
-            ))}
+            {(() => {
+              const e = extracted || {};
+              const cur = e.currency || '';
+              const origins = e.amount || 0;
+              const inr = e.amount_in_inr || 0;
+              const xrate = e.exchange_rate || 0;
+              const fields = [
+                { k: 'merchant',        v: e.merchant || '-' },
+                { k: 'date',            v: e.date || '-' },
+                { k: 'original amount', v: cur ? `${origins} ${cur}` : (origins || '-') },
+                { k: 'currency',        v: cur || '-' },
+                { k: 'exchange rate',   v: xrate > 0 ? xrate : '-' },
+                { k: 'inr amount',      v: inr > 0 ? `₹${parseFloat(inr).toLocaleString('en-IN')}` : '-' },
+                { k: 'tax',             v: e.tax || '-' },
+                { k: 'invoice number',  v: e.invoice_number || '-' },
+                { k: 'category',        v: e.category || '-' },
+              ];
+              return fields.map(({ k, v }) => (
+                <div key={k} className="bg-canvas-soft rounded-xl p-2.5">
+                  <p className="text-[10px] text-ink-muted uppercase">{k.replace('_', ' ')}</p>
+                  <p className="text-sm font-medium text-ink">{v}</p>
+                </div>
+              ));
+            })()}
           </div>
         </Card>
       )}
