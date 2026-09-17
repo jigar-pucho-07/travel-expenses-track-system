@@ -84,7 +84,6 @@ export default function Dashboard() {
     { label: 'Transport', amount: 4500 },
     { label: 'Hotel', amount: 3000 },
     { label: 'Food', amount: 1850 },
-    { label: 'Cab', amount: 1200 },
     { label: 'Other', amount: 900 },
   ];
 

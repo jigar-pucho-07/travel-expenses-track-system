@@ -1,0 +1,208 @@
+{
+  "created": 1756896000000,
+  "updated": 1756896000000,
+  "name": "WF11 - Reopen Trip",
+  "description": "Reopen a completed trip by updating only its Status to Active. Find by Trip_ID, update Status only, never create new rows.",
+  "tags": [],
+  "pieces": [
+    "@puchoaistudio/tool-webhook",
+    "@puchoaistudio/tool-google-sheets"
+  ],
+  "template": {
+    "displayName": "WF11 - Reopen Trip",
+    "trigger": {
+      "name": "trigger",
+      "type": "TOOL_TRIGGER",
+      "displayName": "When reopen trip request received",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "^2.0.4",
+        "triggerName": "catch_webhook",
+        "input": { "authType": "none", "authFields": {} },
+        "sampleData": {},
+        "propertySettings": {
+          "liveMarkdown": { "type": "MANUAL" },
+          "syncMarkdown": { "type": "MANUAL" },
+          "testMarkdown": { "type": "MANUAL" },
+          "authType": { "type": "MANUAL" },
+          "authFields": { "type": "MANUAL", "schema": {} }
+        }
+      },
+      "nextAction": {
+        "name": "step_1",
+        "type": "PIECE",
+        "displayName": "Find Trip Row",
+        "valid": true,
+        "skip": false,
+        "settings": {
+          "pieceName": "@puchoaistudio/tool-google-sheets",
+          "pieceVersion": "^2.0.9",
+          "actionName": "find_rows",
+          "input": {
+            "auth": "",
+            "spreadsheetId": "1gQBDr0PqqNgYF8Od2Rmc01jEQOXOecG1xsjyJpqI84I",
+            "sheetId": "1778620388",
+            "columnName": "Trip_ID",
+            "searchValue": "{{trigger['body']['trip_id']}}",
+            "matchCase": false,
+            "numberOfRows": 1,
+            "includeTeamDrives": false
+          },
+          "sampleData": {},
+          "propertySettings": {
+            "auth": { "type": "MANUAL" },
+            "spreadsheetId": { "type": "MANUAL" },
+            "sheetId": { "type": "MANUAL" },
+            "columnName": { "type": "MANUAL" },
+            "searchValue": { "type": "MANUAL" },
+            "matchCase": { "type": "MANUAL" },
+            "numberOfRows": { "type": "MANUAL" },
+            "includeTeamDrives": { "type": "MANUAL" },
+            "startingRow": { "type": "MANUAL" }
+          },
+          "errorHandlingOptions": {
+            "retryOnFailure": { "value": true },
+            "continueOnFailure": { "value": false }
+          }
+        },
+        "nextAction": {
+          "name": "step_2",
+          "type": "CODE",
+          "displayName": "Validate Trip Found",
+          "valid": true,
+          "skip": false,
+          "settings": {
+            "input": {
+              "tripRows": "{{step_1}}",
+              "tripId": "{{trigger['body']['trip_id']}}"
+            },
+            "sourceCode": {
+              "code": "export const code = async (inputs) => {\n  let rows = [];\n  const raw = inputs.tripRows;\n  if (Array.isArray(raw)) { rows = raw; }\n  else if (raw && typeof raw === 'object') {\n    const objVals = Object.values(raw);\n    if (objVals.length > 0 && objVals[0] && typeof objVals[0] === 'object' && (objVals[0] as any).values) { rows = objVals; }\n    else { rows = raw.data || raw.rows || objVals; if (!Array.isArray(rows)) rows = [rows]; }\n  }\n\n  if (rows.length === 0) {\n    const resp = { success: false, found: false, trip_id: inputs.tripId || '', message: 'Trip not found' };\n    return { response_body: JSON.stringify(resp) };\n  }\n\n  const rowNum = rows[0].row || rows[0]['row'] || 0;\n  return { found: true, row_id: rowNum, trip_id: inputs.tripId || '' };\n};",
+              "packageJson": "{}"
+            },
+            "sampleData": {},
+            "propertySettings": {
+              "tripRows": { "type": "MANUAL" },
+              "tripId": { "type": "MANUAL" }
+            },
+            "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+          },
+          "nextAction": {
+            "name": "step_router",
+            "type": "ROUTER",
+            "displayName": "Route by Found",
+            "valid": true,
+            "skip": false,
+            "settings": {
+              "branches": [
+                { "branchName": "Not Found", "branchType": "CONDITION",
+                  "conditions": [[{ "operator": "BOOLEAN_IS_FALSE", "firstValue": "{{step_2['found']}}", "secondValue": "true", "caseSensitive": false }]] },
+                { "branchName": "Found", "branchType": "FALLBACK" }
+              ],
+              "executionType": "EXECUTE_FIRST_MATCH",
+              "sampleData": {}
+            },
+            "children": [
+              {
+                "name": "step_notfound",
+                "type": "PIECE",
+                "displayName": "Return Not Found Error",
+                "valid": true,
+                "skip": false,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-webhook",
+                  "pieceVersion": "^2.0.4",
+                  "actionName": "return_response",
+                  "input": { "responseType": "Raw", "respond": "stop", "fields": { "body": "{{step_2['response_body']}}" } },
+                  "sampleData": {},
+                  "propertySettings": {
+                    "responseType": { "type": "MANUAL" }, "respond": { "type": "MANUAL" },
+                    "fields": { "type": "MANUAL", "schema": { "body": { "type": "SHORT_TEXT", "required": true, "displayName": "Body", "defaultValue": "" } } }
+                  },
+                  "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                },
+                "nextAction": null
+              },
+              {
+                "name": "step_3",
+                "type": "PIECE",
+                "displayName": "Update Status to Active",
+                "valid": true,
+                "skip": false,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-google-sheets",
+                  "pieceVersion": "^2.0.9",
+                  "actionName": "update_row",
+                  "input": {
+                    "auth": "",
+                    "spreadsheetId": "1gQBDr0PqqNgYF8Od2Rmc01jEQOXOecG1xsjyJpqI84I",
+                    "sheetId": "1778620388",
+                    "row_id": "{{step_2['row_id']}}",
+                    "first_row_headers": true,
+                    "includeTeamDrives": false,
+                    "values": { "Status": "Active" }
+                  },
+                  "sampleData": {},
+                  "propertySettings": {
+                    "auth": { "type": "MANUAL" },
+                    "spreadsheetId": { "type": "MANUAL" },
+                    "sheetId": { "type": "MANUAL" },
+                    "row_id": { "type": "MANUAL" },
+                    "first_row_headers": { "type": "MANUAL" },
+                    "includeTeamDrives": { "type": "MANUAL" },
+                    "values": { "type": "MANUAL", "schema": { "Status": { "type": "SHORT_TEXT", "required": true, "displayName": "Status", "defaultValue": "Active" } } }
+                  },
+                  "errorHandlingOptions": { "retryOnFailure": { "value": true }, "continueOnFailure": { "value": false } }
+                },
+                "nextAction": {
+                  "name": "step_4",
+                  "type": "CODE",
+                  "displayName": "Prepare Success Response",
+                  "valid": true,
+                  "skip": false,
+                  "settings": {
+                    "input": { "tripId": "{{step_2['trip_id']}}" },
+                    "sourceCode": {
+                      "code": "export const code = async (inputs) => {\n  const resp = { success: true, found: true, trip_id: inputs.tripId || '', status: 'Active', message: 'Trip reopened successfully' };\n  return { response_body: JSON.stringify(resp) };\n};",
+                      "packageJson": "{}"
+                    },
+                    "sampleData": {},
+                    "propertySettings": { "tripId": { "type": "MANUAL" } },
+                    "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                  },
+                  "nextAction": {
+                    "name": "step_5",
+                    "type": "PIECE",
+                    "displayName": "Return Success Response",
+                    "valid": true,
+                    "skip": false,
+                    "settings": {
+                      "pieceName": "@puchoaistudio/tool-webhook",
+                      "pieceVersion": "^2.0.4",
+                      "actionName": "return_response",
+                      "input": { "responseType": "Raw", "respond": "stop", "fields": { "body": "{{step_4['response_body']}}" } },
+                      "sampleData": {},
+                      "propertySettings": {
+                        "responseType": { "type": "MANUAL" }, "respond": { "type": "MANUAL" },
+                        "fields": { "type": "MANUAL", "schema": { "body": { "type": "SHORT_TEXT", "required": true, "displayName": "Body", "defaultValue": "" } } }
+                      },
+                      "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                    },
+                    "nextAction": null
+                  }
+                }
+              }
+            ],
+            "nextAction": null
+          }
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

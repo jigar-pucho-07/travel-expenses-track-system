@@ -274,7 +274,7 @@ export async function getTripSummaryReal(trip_id, budget) {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
 
     let httpRes, rawBody;
     try {
@@ -607,6 +607,58 @@ export async function listReportsReal(user_id) {
   }
 }
 
+/** WF11: Reopen Trip — updates trip status to Active. */
+export async function reopenTripReal(trip_id) {
+  const url = import.meta.env.VITE_WF_REOPEN_TRIP;
+  if (!url) { return { success: false, message: 'Reopen service not configured' }; }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let httpRes, rawBody;
+    try {
+      httpRes = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trip_id, status: 'Active' }), signal: controller.signal,
+      });
+      rawBody = await httpRes.text();
+    } finally { clearTimeout(timeoutId); }
+    let parsed;
+    try { parsed = JSON.parse(rawBody); } catch {
+      const m = rawBody.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]); else throw new Error('Invalid response');
+    }
+    if (parsed.body && typeof parsed.body === 'string') { try { parsed = JSON.parse(parsed.body); } catch {} }
+    return parsed;
+  } catch (err) {
+    return { success: false, message: 'Unable to reopen trip. Please try again.' };
+  }
+}
+
+/** WF12: Update Expense — updates specific expense fields */
+export async function updateExpenseReal(payload) {
+  const url = import.meta.env.VITE_WF_UPDATE_EXPENSE;
+  if (!url) { return { success: false, message: 'Update service not configured' }; }
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    let httpRes, rawBody;
+    try {
+      httpRes = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), signal: controller.signal,
+      });
+      rawBody = await httpRes.text();
+    } finally { clearTimeout(timeoutId); }
+    let parsed;
+    try { parsed = JSON.parse(rawBody); } catch {
+      const m = rawBody.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]); else throw new Error('Invalid response');
+    }
+    if (parsed.body && typeof parsed.body === 'string') { try { parsed = JSON.parse(parsed.body); } catch {} }
+    return parsed;
+  } catch (err) { return { success: false, message: 'Unable to update expense. Please try again.' }; }
+}
+
 // ─── Legacy compatibility (for existing code transitioning) ────
 export const triggerWorkflow = (action, payload) => {
   switch (action) {
@@ -618,6 +670,8 @@ export const triggerWorkflow = (action, payload) => {
     case 'complete_trip': return completeTripReal(payload.trip_id);
     case 'list_trips': return listTrips(payload.user_id);
     case 'list_reports': return listReportsReal(payload.user_id);
+    case 'reopen_trip': return reopenTripReal(payload.trip_id);
+    case 'update_expense': return updateExpenseReal(payload);
     default: throw new Error(`Unknown action: ${action}`);
   }
 };

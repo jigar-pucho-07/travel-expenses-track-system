@@ -1,0 +1,230 @@
+{
+  "created": 1756896000000,
+  "updated": 1756896000000,
+  "name": "WF12 - Update Expense",
+  "description": "Find expense by Expense_ID, update only changed fields (Merchant, Amount, Tax, SGST, CGST, GST, GSTIN, Invoice_Number, Date, Items_JSON). Never create rows.",
+  "tags": [],
+  "pieces": [
+    "@puchoaistudio/tool-webhook",
+    "@puchoaistudio/tool-google-sheets"
+  ],
+  "template": {
+    "displayName": "WF12 - Update Expense",
+    "trigger": {
+      "name": "trigger",
+      "type": "TOOL_TRIGGER",
+      "displayName": "When update expense request received",
+      "valid": true,
+      "settings": {
+        "pieceName": "@puchoaistudio/tool-webhook",
+        "pieceVersion": "^2.0.4",
+        "triggerName": "catch_webhook",
+        "input": { "authType": "none", "authFields": {} },
+        "sampleData": {},
+        "propertySettings": {
+          "liveMarkdown": { "type": "MANUAL" },
+          "syncMarkdown": { "type": "MANUAL" },
+          "testMarkdown": { "type": "MANUAL" },
+          "authType": { "type": "MANUAL" },
+          "authFields": { "type": "MANUAL", "schema": {} }
+        }
+      },
+      "nextAction": {
+        "name": "step_1",
+        "type": "PIECE",
+        "displayName": "Find Expense Row",
+        "valid": true,
+        "skip": false,
+        "settings": {
+          "pieceName": "@puchoaistudio/tool-google-sheets",
+          "pieceVersion": "^2.0.9",
+          "actionName": "find_rows",
+          "input": {
+            "auth": "",
+            "spreadsheetId": "1gQBDr0PqqNgYF8Od2Rmc01jEQOXOecG1xsjyJpqI84I",
+            "sheetId": "899847528",
+            "columnName": "Expense_ID",
+            "searchValue": "{{trigger['body']['expense_id']}}",
+            "matchCase": false,
+            "numberOfRows": 1,
+            "includeTeamDrives": false
+          },
+          "sampleData": {},
+          "propertySettings": {
+            "auth": { "type": "MANUAL" },
+            "spreadsheetId": { "type": "MANUAL" },
+            "sheetId": { "type": "MANUAL" },
+            "columnName": { "type": "MANUAL" },
+            "searchValue": { "type": "MANUAL" },
+            "matchCase": { "type": "MANUAL" },
+            "numberOfRows": { "type": "MANUAL" },
+            "includeTeamDrives": { "type": "MANUAL" },
+            "startingRow": { "type": "MANUAL" }
+          },
+          "errorHandlingOptions": { "retryOnFailure": { "value": true }, "continueOnFailure": { "value": false } }
+        },
+        "nextAction": {
+          "name": "step_2",
+          "type": "CODE",
+          "displayName": "Validate & Extract Row ID",
+          "valid": true,
+          "skip": false,
+          "settings": {
+            "input": {
+              "expenseRows": "{{step_1}}",
+              "expenseId": "{{trigger['body']['expense_id']}}"
+            },
+            "sourceCode": {
+              "code": "export const code = async (inputs) => {\n  let rows = [];\n  const raw = inputs.expenseRows;\n  if (Array.isArray(raw)) { rows = raw; }\n  else if (raw && typeof raw === 'object') {\n    const objVals = Object.values(raw);\n    if (objVals.length > 0 && objVals[0] && typeof objVals[0] === 'object' && (objVals[0] as any).values) { rows = objVals; }\n    else { rows = raw.data || raw.rows || objVals; if (!Array.isArray(rows)) rows = [rows]; }\n  }\n\n  if (rows.length === 0) {\n    const resp = { success: false, message: 'Expense not found', expense_id: inputs.expenseId || '' };\n    return { response_body: JSON.stringify(resp) };\n  }\n\n  const rowNum = rows[0].row || rows[0]['row'] || 0;\n  return { found: true, row_id: rowNum, expense_id: inputs.expenseId || '' };\n};",
+              "packageJson": "{}"
+            },
+            "sampleData": {},
+            "propertySettings": {
+              "expenseRows": { "type": "MANUAL" },
+              "expenseId": { "type": "MANUAL" }
+            },
+            "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+          },
+          "nextAction": {
+            "name": "step_router",
+            "type": "ROUTER",
+            "displayName": "Route by Found",
+            "valid": true,
+            "skip": false,
+            "settings": {
+              "branches": [
+                { "branchName": "Not Found", "branchType": "CONDITION",
+                  "conditions": [[{ "operator": "BOOLEAN_IS_FALSE", "firstValue": "{{step_2['found']}}", "secondValue": "true", "caseSensitive": false }]] },
+                { "branchName": "Found", "branchType": "FALLBACK" }
+              ],
+              "executionType": "EXECUTE_FIRST_MATCH",
+              "sampleData": {}
+            },
+            "children": [
+              {
+                "name": "step_notfound",
+                "type": "PIECE",
+                "displayName": "Return Not Found Error",
+                "valid": true,
+                "skip": false,
+                "settings": {
+                  "pieceName": "@puchoaistudio/tool-webhook",
+                  "pieceVersion": "^2.0.4",
+                  "actionName": "return_response",
+                  "input": { "responseType": "Raw", "respond": "stop", "fields": { "body": "{{step_2['response_body']}}" } },
+                  "sampleData": {},
+                  "propertySettings": {
+                    "responseType": { "type": "MANUAL" }, "respond": { "type": "MANUAL" },
+                    "fields": { "type": "MANUAL", "schema": { "body": { "type": "SHORT_TEXT", "required": true, "displayName": "Body", "defaultValue": "" } } }
+                  },
+                  "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                },
+                "nextAction": null
+              },
+              {
+                "name": "step_3",
+                "type": "CODE",
+                "displayName": "Build Update Values",
+                "valid": true,
+                "skip": false,
+                "settings": {
+                  "input": {
+                    "rowId": "{{step_2['row_id']}}",
+                    "expenseId": "{{step_2['expense_id']}}",
+                    "body": "{{trigger['body']}}"
+                  },
+                  "sourceCode": {
+                    "code": "export const code = async (inputs) => {\n  const b = typeof inputs.body === 'string' ? JSON.parse(inputs.body) : (inputs.body || {});\n  const values = {};\n  if (b.merchant !== undefined && b.merchant !== null) values.Merchant = b.merchant;\n  if (b.amount !== undefined && b.amount !== null) values.Amount = String(b.amount);\n  if (b.tax !== undefined && b.tax !== null) values.Tax = String(b.tax);\n  if (b.sgst !== undefined && b.sgst !== null) values.SGST = String(b.sgst);\n  if (b.cgst !== undefined && b.cgst !== null) values.CGST = String(b.cgst);\n  if (b.gst !== undefined && b.gst !== null) values.GST = String(b.gst);\n  if (b.gstin !== undefined && b.gstin !== null) values.GSTIN = b.gstin;\n  if (b.invoice_number !== undefined && b.invoice_number !== null) values.Invoice_Number = b.invoice_number;\n  if (b.expense_date !== undefined && b.expense_date !== null) values.Date = b.expense_date;\n  if (b.items !== undefined && b.items !== null) values.Items_JSON = typeof b.items === 'string' ? b.items : JSON.stringify(b.items);\n  return { row_id: inputs.rowId, expense_id: inputs.expenseId, values: values };\n};",
+                    "packageJson": "{}"
+                  },
+                  "sampleData": {},
+                  "propertySettings": {
+                    "rowId": { "type": "MANUAL" },
+                    "expenseId": { "type": "MANUAL" },
+                    "body": { "type": "MANUAL" }
+                  },
+                  "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                },
+                "nextAction": {
+                  "name": "step_4",
+                  "type": "PIECE",
+                  "displayName": "Update Expense Row",
+                  "valid": true,
+                  "skip": false,
+                  "settings": {
+                    "pieceName": "@puchoaistudio/tool-google-sheets",
+                    "pieceVersion": "^2.0.9",
+                    "actionName": "update_row",
+                    "input": {
+                      "auth": "",
+                      "spreadsheetId": "1gQBDr0PqqNgYF8Od2Rmc01jEQOXOecG1xsjyJpqI84I",
+                      "sheetId": "899847528",
+                      "row_id": "{{step_3['row_id']}}",
+                      "first_row_headers": true,
+                      "includeTeamDrives": false,
+                      "values": "{{step_3['values']}}"
+                    },
+                    "sampleData": {},
+                    "propertySettings": {
+                      "auth": { "type": "MANUAL" },
+                      "spreadsheetId": { "type": "MANUAL" },
+                      "sheetId": { "type": "MANUAL" },
+                      "row_id": { "type": "MANUAL" },
+                      "first_row_headers": { "type": "MANUAL" },
+                      "includeTeamDrives": { "type": "MANUAL" },
+                      "values": { "type": "MANUAL", "schema": {} }
+                    },
+                    "errorHandlingOptions": { "retryOnFailure": { "value": true }, "continueOnFailure": { "value": false } }
+                  },
+                  "nextAction": {
+                    "name": "step_5",
+                    "type": "CODE",
+                    "displayName": "Prepare Success Response",
+                    "valid": true,
+                    "skip": false,
+                    "settings": {
+                      "input": { "expenseId": "{{step_3['expense_id']}}" },
+                      "sourceCode": {
+                        "code": "export const code = async (inputs) => {\n  const resp = { success: true, expense_id: inputs.expenseId || '', message: 'Expense updated successfully' };\n  return { response_body: JSON.stringify(resp) };\n};",
+                        "packageJson": "{}"
+                      },
+                      "sampleData": {},
+                      "propertySettings": { "expenseId": { "type": "MANUAL" } },
+                      "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                    },
+                    "nextAction": {
+                      "name": "step_6",
+                      "type": "PIECE",
+                      "displayName": "Return Success Response",
+                      "valid": true,
+                      "skip": false,
+                      "settings": {
+                        "pieceName": "@puchoaistudio/tool-webhook",
+                        "pieceVersion": "^2.0.4",
+                        "actionName": "return_response",
+                        "input": { "responseType": "Raw", "respond": "stop", "fields": { "body": "{{step_5['response_body']}}" } },
+                        "sampleData": {},
+                        "propertySettings": {
+                          "responseType": { "type": "MANUAL" }, "respond": { "type": "MANUAL" },
+                          "fields": { "type": "MANUAL", "schema": { "body": { "type": "SHORT_TEXT", "required": true, "displayName": "Body", "defaultValue": "" } } }
+                        },
+                        "errorHandlingOptions": { "retryOnFailure": { "value": false }, "continueOnFailure": { "value": false } }
+                      },
+                      "nextAction": null
+                    }
+                  }
+                }
+              }
+            ],
+            "nextAction": null
+          }
+        }
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [],
+    "schemaVersion": "7"
+  },
+  "blogUrl": ""
+}

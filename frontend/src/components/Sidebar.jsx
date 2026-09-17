@@ -18,8 +18,10 @@ export default function Sidebar() {
       <nav className="flex-1 px-3 py-4 space-y-1">
         {NAV.map(({ path, label, icon: Icon }) => {
           const active = pathname === path || pathname.startsWith(path + '/');
+          const isTripsLink = path === '/trips';
           return (
             <Link key={path} to={path}
+              onClick={isTripsLink ? () => localStorage.removeItem('tripDetails_tripId') : undefined}
               className={`flex items-center gap-2.5 h-10 px-3 rounded-2xl text-sm font-medium transition-colors
                 ${active ? 'bg-brand-50 text-ink' : 'text-ink-muted hover:bg-canvas-soft'}`}>
               <Icon className="w-5 h-5 opacity-70" />{label}

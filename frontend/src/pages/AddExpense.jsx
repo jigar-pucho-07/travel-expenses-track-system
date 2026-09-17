@@ -5,7 +5,18 @@ import { toast } from 'sonner';
 import { triggerWorkflow, readFileAsBase64, processReceiptReal, addExpenseReal } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-const CATEGORIES = ['Transportation', 'Hotel', 'Food', 'Cab', 'Other'];
+const CATEGORIES = ['Transportation', 'Hotel', 'Food', 'Other'];
+
+const SUBCATEGORIES = {
+  Transportation: ['Flight', 'Train', 'Bus', 'Cab', 'Metro', 'Other Transportation'],
+  Hotel: ['Room', 'Room Service', 'Breakfast', 'Lunch', 'Dinner', 'Laundry', 'Minibar', 'Other Hotel'],
+  Food: ['Breakfast', 'Lunch', 'Dinner', 'Snacks', 'Beverages', 'Grocery', 'Other Food'],
+  Other: ['Miscellaneous', 'Office', 'Personal', 'Other'],
+};
+
+function getSubcategoryPlaceholder(category) {
+  return SUBCATEGORIES[category] ? `e.g. ${SUBCATEGORIES[category][0]}` : 'Select subcategory';
+}
 
 function Card({ children, className = '' }) {
   return <div className={`bg-white rounded-2xl border border-line shadow-card p-5 ${className}`}>{children}</div>;
@@ -49,7 +60,17 @@ export default function AddExpense() {
     amount: '', currency: 'INR', payment_method: '', description: ''
   });
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    const updated = { ...form, [name]: value };
+    if (name === 'category' && form.subcategory) {
+      const validSubs = SUBCATEGORIES[value] || [];
+      if (!validSubs.includes(form.subcategory)) {
+        updated.subcategory = '';
+      }
+    }
+    setForm(updated);
+  };
 
   // ─── Manual Submit ────────────────────────────────────────────
   const handleManualSubmit = async (e) => {
@@ -74,6 +95,10 @@ export default function AddExpense() {
       if (source === 'receipt' && extracted) {
         payload.expense_time     = extracted.time || '';
         payload.tax              = parseFloat(extracted.tax) || 0;
+        payload.cgst             = parseFloat(extracted.cgst) || 0;
+        payload.sgst             = parseFloat(extracted.sgst) || 0;
+        payload.gst              = parseFloat(extracted.gst) || 0;
+        payload.gstin            = extracted.gstin || '';
         payload.invoice_number   = extracted.invoice_number || '';
         payload.items            = extracted.items || [];
         if (extracted.travel_details) {
@@ -148,7 +173,12 @@ export default function AddExpense() {
             }
             return String(ext.amount || '');
           })(),
-          category: ext.category || 'Other',
+          category: (() => {
+            const cat = (ext.category || '').trim().toLowerCase();
+            if (cat === 'cab') return 'Transportation';
+            return ext.category || 'Other';
+          })(),
+          ...(ext.category && ext.category.toLowerCase() === 'cab' ? { subcategory: 'Cab' } : {}),
         });
         toast.success('Receipt processed! Please review and edit details before adding.');
       } else {
@@ -257,7 +287,10 @@ export default function AddExpense() {
               <option value="">Select</option>
               {CATEGORIES.map(c => <option key={c}>{c}</option>)}
             </Input>
-            <Input label="Subcategory" name="subcategory" placeholder="e.g. Lunch" value={form.subcategory} onChange={handleChange} icon={Tag} />
+            <Input label="Subcategory" name="subcategory" type="select" placeholder={getSubcategoryPlaceholder(form.category)} value={form.subcategory} onChange={handleChange} icon={Tag}>
+              <option value="">{getSubcategoryPlaceholder(form.category)}</option>
+              {(SUBCATEGORIES[form.category] || []).map(s => <option key={s}>{s}</option>)}
+            </Input>
           </div>
           <Input label="Merchant / Vendor" name="merchant" placeholder="e.g. ABC Restaurant" value={form.merchant} onChange={handleChange} icon={FileText} />
           <div className="grid grid-cols-2 gap-4">
