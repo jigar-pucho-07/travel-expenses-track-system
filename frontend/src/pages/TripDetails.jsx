@@ -36,11 +36,11 @@ function detectTransportType(exp) {
 }
 
 function calcSubtotal(exp) {
-  const gst = parseFloat(exp.gst) || 0;
-  const cgst = parseFloat(exp.cgst) || 0;
-  const sgst = parseFloat(exp.sgst) || 0;
-  const tax = parseFloat(exp.tax) || 0;
-  const amount = parseFloat(exp.amount) || 0;
+  const gst = parseFloat(exp.gst_in_inr ?? exp.gst) || 0;
+  const cgst = parseFloat(exp.cgst_in_inr ?? exp.cgst) || 0;
+  const sgst = parseFloat(exp.sgst_in_inr ?? exp.sgst) || 0;
+  const tax = parseFloat(exp.tax_in_inr ?? exp.tax) || 0;
+  const amount = parseFloat(exp.amount_in_inr ?? exp.amount) || 0;
 
   let totalTax = 0;
   if (gst > 0) totalTax = gst;
@@ -429,7 +429,7 @@ export default function TripDetails() {
                     <td className="px-4 py-3 text-ink">{exp.date}</td>
                     <td className="px-4 py-3 text-ink">{exp.category}</td>
                     <td className="px-4 py-3 text-ink">{exp.merchant}</td>
-                    <td className="px-4 py-3 font-medium text-ink">₹{(exp.amount || 0).toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 font-medium text-ink">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3"><StatusPill status={exp.status} /></td>
                   </tr>
                 ))}
@@ -625,8 +625,8 @@ export default function TripDetails() {
                               <tr key={i} className="border-b border-line/50">
                                 <td className="py-1.5 text-ink">{item.name || '-'}</td>
                                 <td className="text-center py-1.5 text-ink">{item.quantity || 1}</td>
-                                <td className="text-right py-1.5 text-ink">₹{(item.unit_price || 0).toLocaleString('en-IN')}</td>
-                                <td className="text-right py-1.5 text-ink font-medium">₹{(item.total_price || 0).toLocaleString('en-IN')}</td>
+                                <td className="text-right py-1.5 text-ink">₹{((item.unit_price_inr ?? item.unit_price) || 0).toLocaleString('en-IN')}</td>
+                                <td className="text-right py-1.5 text-ink font-medium">₹{((item.total_price_inr ?? item.total_price) || 0).toLocaleString('en-IN')}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -636,17 +636,18 @@ export default function TripDetails() {
                     {!items.length && (
                       <p className="text-xs text-ink-muted italic py-2">No itemized details available.</p>
                     )}
-                    <InfoRow label="Tax" value={exp.tax > 0 ? `₹${parseFloat(exp.tax).toLocaleString('en-IN')}` : exp.tax === 0 ? '₹0' : null} />
-                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="GST" value={exp.gst > 0 ? `₹${parseFloat(exp.gst).toLocaleString('en-IN')}` : null} />
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <InfoRow label="Tax" value={(() => { const tv = exp.gst_in_inr ?? exp.tax_in_inr ?? exp.tax; if (tv == null) return null; const n = parseFloat(tv); return n > 0 ? `₹${n.toLocaleString('en-IN')}` : '₹0'; })()} />
                     {exp.invoice_number && <InfoRow label="Invoice Number" value={exp.invoice_number} />}
+                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst_in_inr ?? exp.sgst).toLocaleString('en-IN')}` : null} />
                     {exp.status && <InfoRow label="Status" value={exp.status} />}
+                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst_in_inr ?? exp.cgst).toLocaleString('en-IN')}` : null} />
                     {(calcSubtotal(exp).totalTax > 0) && <InfoRow label="Subtotal Before Tax" value={`₹${calcSubtotal(exp).subtotal.toLocaleString('en-IN')}`} />}
+                  </div>
                     <div className="pt-2 border-t border-line" />
                     <div className="flex justify-between items-center py-1.5">
                       <span className="text-xs font-semibold text-ink-muted">Final Total</span>
-                      <span className="text-base font-bold text-brand">₹{(exp.amount || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-base font-bold text-brand">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </>)}
 
@@ -661,15 +662,18 @@ export default function TripDetails() {
                         {(tt === 'train' || tt === 'flight' || tt === 'bus') && <><InfoRow label="Journey / Departure Date" value={exp.departure_date} /><InfoRow label="Departure Time" value={exp.departure_time} /><InfoRow label="Arrival Date" value={exp.arrival_date} /><InfoRow label="Arrival Time" value={exp.arrival_time} /><InfoRow label="Seat / Coach" value={exp.seat_number} /></>}
                         <InfoRow label="Travel Class" value={exp.travel_class} />
                         {(tt === 'train' || tt === 'bus') && <InfoRow label="PNR / Reference" value={exp.booking_reference} />}
-                        <InfoRow label="Tax" value={exp.tax > 0 ? `₹${parseFloat(exp.tax).toLocaleString('en-IN')}` : exp.tax === 0 ? '₹0' : null} />
-                        <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst).toLocaleString('en-IN')}` : null} />
-                        <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst).toLocaleString('en-IN')}` : null} />
-                        <InfoRow label="GST" value={exp.gst > 0 ? `₹${parseFloat(exp.gst).toLocaleString('en-IN')}` : null} />
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <InfoRow label="Tax" value={(() => { const tv = exp.gst_in_inr ?? exp.tax_in_inr ?? exp.tax; if (tv == null) return null; const n = parseFloat(tv); return n > 0 ? `₹${n.toLocaleString('en-IN')}` : '₹0'; })()} />
+                        {exp.invoice_number && <InfoRow label="Invoice Number" value={exp.invoice_number} />}
+                        <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst_in_inr ?? exp.sgst).toLocaleString('en-IN')}` : null} />
+                        {exp.status && <InfoRow label="Status" value={exp.status} />}
+                        <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst_in_inr ?? exp.cgst).toLocaleString('en-IN')}` : null} />
                         {                                            (calcSubtotal(exp).totalTax > 0) && <InfoRow label="Subtotal Before Tax" value={`₹${calcSubtotal(exp).subtotal.toLocaleString('en-IN')}`} />}
+                      </div>
                         <div className="pt-2 border-t border-line" />
                         <div className="flex justify-between items-center py-1.5">
                           <span className="text-xs font-semibold text-ink-muted">Amount</span>
-                          <span className="text-base font-bold text-brand">₹{(exp.amount || 0).toLocaleString('en-IN')}</span>
+                          <span className="text-base font-bold text-brand">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</span>
                         </div>
                       </div>
                     );
@@ -681,7 +685,7 @@ export default function TripDetails() {
                     <div className="pt-2 border-t border-line" />
                     <div className="flex justify-between items-center py-1.5">
                       <span className="text-xs font-semibold text-ink-muted">Amount</span>
-                      <span className="text-base font-bold text-brand">₹{(exp.amount || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-base font-bold text-brand">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>)}
 
@@ -692,15 +696,18 @@ export default function TripDetails() {
                     <InfoRow label="Date" value={exp.date} />
                     <InfoRow label="Time" value={exp.expense_time} />
                     <InfoRow label="Trip Reference" value={exp.booking_reference} />
-                    <InfoRow label="Tax" value={exp.tax > 0 ? `₹${parseFloat(exp.tax).toLocaleString('en-IN')}` : exp.tax === 0 ? '₹0' : null} />
-                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="GST" value={exp.gst > 0 ? `₹${parseFloat(exp.gst).toLocaleString('en-IN')}` : null} />
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <InfoRow label="Tax" value={(() => { const tv = exp.gst_in_inr ?? exp.tax_in_inr ?? exp.tax; if (tv == null) return null; const n = parseFloat(tv); return n > 0 ? `₹${n.toLocaleString('en-IN')}` : '₹0'; })()} />
+                    {exp.invoice_number && <InfoRow label="Invoice Number" value={exp.invoice_number} />}
+                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst_in_inr ?? exp.sgst).toLocaleString('en-IN')}` : null} />
+                    {exp.status && <InfoRow label="Status" value={exp.status} />}
+                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst_in_inr ?? exp.cgst).toLocaleString('en-IN')}` : null} />
                     {                                            (calcSubtotal(exp).totalTax > 0) && <InfoRow label="Subtotal Before Tax" value={`₹${calcSubtotal(exp).subtotal.toLocaleString('en-IN')}`} />}
+                  </div>
                     <div className="pt-2 border-t border-line" />
                     <div className="flex justify-between items-center py-1.5">
                       <span className="text-xs font-semibold text-ink-muted">Fare</span>
-                      <span className="text-base font-bold text-brand">₹{(exp.amount || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-base font-bold text-brand">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>)}
 
@@ -709,17 +716,18 @@ export default function TripDetails() {
                     <InfoRow label="Date" value={exp.date} />
                     <InfoRow label="Time" value={exp.expense_time} />
                     <InfoRow label="Description" value={exp.description} />
-                    <InfoRow label="Tax" value={exp.tax > 0 ? `₹${parseFloat(exp.tax).toLocaleString('en-IN')}` : exp.tax === 0 ? '₹0' : null} />
-                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="GST" value={exp.gst > 0 ? `₹${parseFloat(exp.gst).toLocaleString('en-IN')}` : null} />
-                    <InfoRow label="Invoice Number" value={exp.invoice_number} />
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                    <InfoRow label="Tax" value={(() => { const tv = exp.gst_in_inr ?? exp.tax_in_inr ?? exp.tax; if (tv == null) return null; const n = parseFloat(tv); return n > 0 ? `₹${n.toLocaleString('en-IN')}` : '₹0'; })()} />
+                    {exp.invoice_number && <InfoRow label="Invoice Number" value={exp.invoice_number} />}
+                    <InfoRow label="SGST" value={exp.sgst > 0 ? `₹${parseFloat(exp.sgst_in_inr ?? exp.sgst).toLocaleString('en-IN')}` : null} />
                     {exp.status && <InfoRow label="Status" value={exp.status} />}
+                    <InfoRow label="CGST" value={exp.cgst > 0 ? `₹${parseFloat(exp.cgst_in_inr ?? exp.cgst).toLocaleString('en-IN')}` : null} />
                     {                                            (calcSubtotal(exp).totalTax > 0) && <InfoRow label="Subtotal Before Tax" value={`₹${calcSubtotal(exp).subtotal.toLocaleString('en-IN')}`} />}
+                  </div>
                     <div className="pt-2 border-t border-line" />
                     <div className="flex justify-between items-center py-1.5">
                       <span className="text-xs font-semibold text-ink-muted">Amount</span>
-                      <span className="text-base font-bold text-brand">₹{(exp.amount || 0).toLocaleString('en-IN')}</span>
+                      <span className="text-base font-bold text-brand">₹{((exp.amount_in_inr ?? exp.amount) || 0).toLocaleString('en-IN')}</span>
                     </div>
                   </div>)}
                 </div>
